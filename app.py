@@ -76,57 +76,142 @@ class ProfessionalFiatFlowTracker:
         return 'NY'
     
     def fetch_market_data(self, symbols):
-        """Fetch market data with fallback to mock data"""
+        """Fetch market data with improved error handling and realistic mock data"""
         market_data = {}
         
         for symbol in symbols:
             try:
-                # Try Binance API
-                url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbol}USDT"
-                response = requests.get(url, timeout=5)
+                # Try Binance API with correct symbol formatting
+                binance_symbols = {
+                    'BTC': 'BTCUSDT', 'ETH': 'ETHUSDT', 'BNB': 'BNBUSDT', 
+                    'XRP': 'XRPUSDT', 'ADA': 'ADAUSDT', 'SOL': 'SOLUSDT',
+                    'DOT': 'DOTUSDT', 'DOGE': 'DOGEUSDT', 'MATIC': 'MATICUSDT',
+                    'LTC': 'LTCUSDT', 'AVAX': 'AVAXUSDT', 'LINK': 'LINKUSDT',
+                    'ATOM': 'ATOMUSDT', 'UNI': 'UNIUSDT', 'XLM': 'XLMUSDT',
+                    'ALGO': 'ALGOUSDT', 'ETC': 'ETCUSDT', 'BCH': 'BCHUSDT',
+                    'FIL': 'FILUSDT', 'EOS': 'EOSUSDT', 'SHIB': 'SHIBUSDT',
+                    'PEPE': 'PEPEUSDT', 'FLOKI': 'FLOKIUSDT', 'BONK': 'BONKUSDT',
+                    'WIF': 'WIFUSDT', 'MEME': 'MEMEUSDT', 'TAO': 'TAOUSDT',
+                    'RNDR': 'RNDRUSDT', 'AKT': 'AKTUSDT', 'OCEAN': 'OCEANUSDT',
+                    'FET': 'FETUSDT', 'AGIX': 'AGIXUSDT', 'ARB': 'ARBUSDT',
+                    'OP': 'OPUSDT', 'STRK': 'STRKUSDT', 'METIS': 'METISUSDT',
+                    'IMX': 'IMXUSDT'
+                }
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    market_data[symbol] = {
-                        'price': float(data['lastPrice']),
-                        'price_change_percent': float(data['priceChangePercent']),
-                        'volume': float(data['volume']),
-                        'quote_volume': float(data['quoteVolume']),
-                        'high': float(data['highPrice']),
-                        'low': float(data['lowPrice']),
-                        'trades': int(data['count'])
-                    }
-                else:
-                    market_data[symbol] = self.generate_mock_market_data(symbol)
+                binance_symbol = binance_symbols.get(symbol)
+                if binance_symbol:
+                    url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={binance_symbol}"
+                    response = requests.get(url, timeout=10)
                     
+                    if response.status_code == 200:
+                        data = response.json()
+                        market_data[symbol] = {
+                            'price': float(data['lastPrice']),
+                            'price_change_percent': float(data['priceChangePercent']),
+                            'volume': float(data['volume']),
+                            'quote_volume': float(data['quoteVolume']),
+                            'high': float(data['highPrice']),
+                            'low': float(data['lowPrice']),
+                            'trades': int(data['count'])
+                        }
+                        continue  # Successfully got data, move to next symbol
+                
+                # If Binance fails or symbol not found, use CoinGecko as fallback
+                market_data[symbol] = self.fetch_coingecko_data(symbol)
+                
             except Exception as e:
-                market_data[symbol] = self.generate_mock_market_data(symbol)
+                # If all APIs fail, use realistic mock data
+                market_data[symbol] = self.generate_realistic_market_data(symbol)
         
         return market_data
     
-    def generate_mock_market_data(self, symbol):
-        """Generate realistic mock market data"""
-        base_prices = {
+    def fetch_coingecko_data(self, symbol):
+        """Fetch data from CoinGecko API"""
+        try:
+            coin_mapping = {
+                'BTC': 'bitcoin', 'ETH': 'ethereum', 'BNB': 'binancecoin',
+                'XRP': 'ripple', 'ADA': 'cardano', 'SOL': 'solana',
+                'DOT': 'polkadot', 'DOGE': 'dogecoin', 'MATIC': 'matic-network',
+                'LTC': 'litecoin', 'AVAX': 'avalanche-2', 'LINK': 'chainlink',
+                'ATOM': 'cosmos', 'UNI': 'uniswap', 'XLM': 'stellar',
+                'ALGO': 'algorand', 'ETC': 'ethereum-classic', 'BCH': 'bitcoin-cash',
+                'FIL': 'filecoin', 'EOS': 'eos', 'SHIB': 'shiba-inu',
+                'PEPE': 'pepe', 'FLOKI': 'floki', 'BONK': 'bonk',
+                'WIF': 'dogwifcoin', 'MEME': 'meme-network', 'TAO': 'bittensor',
+                'RNDR': 'render-token', 'AKT': 'akash-network', 'OCEAN': 'ocean-protocol',
+                'FET': 'fetch-ai', 'AGIX': 'singularitynet', 'ARB': 'arbitrum',
+                'OP': 'optimism', 'STRK': 'starknet', 'METIS': 'metis-token',
+                'IMX': 'immutable-x'
+            }
+            
+            coin_id = coin_mapping.get(symbol)
+            if coin_id:
+                url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+                response = requests.get(url, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    price = data['market_data']['current_price']['usd']
+                    price_change = data['market_data']['price_change_percentage_24h']
+                    volume = data['market_data']['total_volume']['usd']
+                    
+                    return {
+                        'price': price,
+                        'price_change_percent': price_change,
+                        'volume': volume,
+                        'quote_volume': volume,
+                        'high': data['market_data']['high_24h']['usd'],
+                        'low': data['market_data']['low_24h']['usd'],
+                        'trades': 0  # Not available from CoinGecko
+                    }
+        except:
+            pass
+        
+        # Final fallback
+        return self.generate_realistic_market_data(symbol)
+    
+    def generate_realistic_market_data(self, symbol):
+        """Generate realistic mock market data with current approximate prices"""
+        current_prices = {
             'BTC': 45000, 'ETH': 2500, 'BNB': 300, 'XRP': 0.6, 'ADA': 0.5,
             'SOL': 100, 'DOT': 7, 'DOGE': 0.1, 'MATIC': 1, 'LTC': 70,
-            'SHIB': 0.000008, 'PEPE': 0.000001, 'AVAX': 40, 'LINK': 15
+            'AVAX': 40, 'LINK': 15, 'ATOM': 10, 'UNI': 6, 'XLM': 0.12,
+            'ALGO': 0.18, 'ETC': 25, 'BCH': 240, 'FIL': 5, 'EOS': 0.8,
+            'SHIB': 0.000008, 'PEPE': 0.000001, 'FLOKI': 0.00002, 'BONK': 0.000012,
+            'WIF': 0.3, 'MEME': 0.02, 'TAO': 400, 'RNDR': 8, 'AKT': 3,
+            'OCEAN': 0.6, 'FET': 0.5, 'AGIX': 0.3, 'ARB': 1.8, 'OP': 3.5,
+            'STRK': 1.6, 'METIS': 60, 'IMX': 2.2
         }
-        base_price = base_prices.get(symbol, 10)
+        
+        base_price = current_prices.get(symbol, 10)
+        
+        # More realistic price movement based on market cap
+        if base_price > 1000:
+            volatility = 0.02  # Low volatility for large caps
+        elif base_price > 100:
+            volatility = 0.03
+        elif base_price > 10:
+            volatility = 0.05
+        elif base_price > 1:
+            volatility = 0.08
+        else:
+            volatility = 0.15  # High volatility for low caps
         
         # Consistent randomness based on symbol
         seed = hash(symbol) % 10000
         np.random.seed(seed)
         
-        price_change = np.random.normal(0, 3)  # More realistic distribution
-        volume = np.random.uniform(1000000, 50000000)
+        price_change = np.random.normal(0, volatility * 100)  # Convert to percentage
+        current_price = base_price * (1 + price_change/100)
+        volume = base_price * np.random.uniform(100000, 5000000)
         
         data = {
-            'price': base_price * (1 + price_change/100),
+            'price': current_price,
             'price_change_percent': price_change,
             'volume': volume,
-            'quote_volume': volume * base_price,
-            'high': base_price * (1 + abs(price_change)/100 + 0.03),
-            'low': base_price * (1 - abs(price_change)/100 - 0.03),
+            'quote_volume': volume,
+            'high': current_price * (1 + abs(price_change)/100 + volatility/2),
+            'low': current_price * (1 - abs(price_change)/100 - volatility/2),
             'trades': np.random.randint(1000, 50000)
         }
         
@@ -134,29 +219,42 @@ class ProfessionalFiatFlowTracker:
         return data
     
     def generate_fiat_inflow_data(self, symbols):
-        """Generate realistic fiat inflow data"""
+        """Generate realistic fiat inflow data based on market conditions"""
         inflow_data = {}
         current_session = self.get_current_session()
-        session_boost = {'Asia': 1.1, 'Europe': 1.3, 'NY': 1.5}.get(current_session, 1.0)
+        
+        # Session multipliers (realistic trading volume patterns)
+        session_multipliers = {'Asia': 0.8, 'Europe': 1.2, 'NY': 1.5}
+        session_boost = session_multipliers.get(current_session, 1.0)
+        
+        # Market cap based inflow patterns
+        large_caps = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP']
+        mid_caps = ['ADA', 'DOT', 'MATIC', 'LTC', 'AVAX', 'LINK', 'ATOM']
         
         for symbol in symbols:
-            # Consistent base inflow based on symbol
+            # Base inflow based on market cap category
+            if symbol in large_caps:
+                base_inflow = np.random.uniform(200, 800)
+            elif symbol in mid_caps:
+                base_inflow = np.random.uniform(50, 300)
+            else:
+                base_inflow = np.random.uniform(10, 150)
+            
+            # Consistent seed for reproducible results
             seed = hash(symbol) % 10000
             np.random.seed(seed)
             
-            base_inflow = np.random.randint(50, 500)
+            # Add realistic volatility and trends
+            daily_trend = np.sin(datetime.utcnow().hour / 24 * 2 * np.pi) * 0.3 + 1
+            volatility = np.random.uniform(0.6, 1.4)
             
-            # Add some randomness but keep it realistic
-            volatility = np.random.uniform(0.7, 1.5)
-            trend_factor = np.random.uniform(0.8, 1.2)
-            
-            current_inflow = base_inflow * volatility * session_boost
-            avg_inflow_5min = base_inflow * session_boost * trend_factor
+            current_inflow = base_inflow * volatility * session_boost * daily_trend
+            avg_inflow_5min = base_inflow * session_boost * daily_trend
             
             inflow_data[symbol] = {
-                'current_inflow': current_inflow,
-                'avg_inflow_5min': avg_inflow_5min,
-                'transactions_per_min': int(current_inflow),
+                'current_inflow': max(current_inflow, 1),  # Ensure positive
+                'avg_inflow_5min': max(avg_inflow_5min, 1),
+                'transactions_per_min': int(current_inflow * np.random.uniform(0.8, 1.2)),
                 'session_boost': session_boost
             }
             
@@ -165,36 +263,47 @@ class ProfessionalFiatFlowTracker:
         return inflow_data
     
     def calculate_scores(self, market_data, inflow_data):
-        """Calculate all trading scores"""
+        """Calculate all trading scores with improved formulas"""
         results = []
         
         for symbol in market_data.keys():
             market = market_data[symbol]
             inflow = inflow_data[symbol]
             
-            # FiatFlow Score
-            fiat_flow_score = (inflow['current_inflow'] / inflow['avg_inflow_5min']) * 100
+            # Improved FiatFlow Score (more realistic)
+            if inflow['avg_inflow_5min'] > 0:
+                flow_ratio = inflow['current_inflow'] / inflow['avg_inflow_5min']
+                fiat_flow_score = min(max((flow_ratio - 1) * 200 + 100, 0), 200)  # 0-200 scale
+            else:
+                fiat_flow_score = 100
             
-            # Momentum Score
-            momentum_score = fiat_flow_score + (market['price_change_percent'] * 10)
+            # Improved Momentum Score (considers price and volume)
+            price_momentum = market['price_change_percent'] * 2
+            volume_ratio = min(market.get('quote_volume', 0) / 1000000, 10)  # Cap influence
+            momentum_score = fiat_flow_score * 0.6 + price_momentum * 0.3 + volume_ratio * 0.1
             
-            # Volume Score (additional metric)
-            volume_score = min(market.get('quote_volume', 0) / 1000000, 100)  # Cap at 100
+            # Volume Score (normalized)
+            volume_score = min(market.get('quote_volume', 0) / 50000000 * 100, 100)
             
-            # Combined Score (weighted)
-            combined_score = (fiat_flow_score * 0.4 + momentum_score * 0.4 + volume_score * 0.2)
+            # Combined Score (improved weighting)
+            combined_score = (
+                fiat_flow_score * 0.35 + 
+                momentum_score * 0.35 + 
+                volume_score * 0.2 +
+                (100 + price_momentum) * 0.1
+            )
             
-            # Determine signal with more granularity
-            if momentum_score > 70 and fiat_flow_score > 120:
+            # Improved signal detection
+            if momentum_score > 120 and fiat_flow_score > 130 and market['price_change_percent'] > 2:
                 signal = "🟢 STRONG BUY"
                 signal_strength = "strong-buy"
-            elif momentum_score > 50:
+            elif momentum_score > 80 and fiat_flow_score > 110:
                 signal = "🟢 BUY"
                 signal_strength = "buy"
-            elif momentum_score < -50 and fiat_flow_score < 80:
+            elif momentum_score < 60 and fiat_flow_score < 80 and market['price_change_percent'] < -2:
                 signal = "🔴 STRONG SELL"
                 signal_strength = "strong-sell"
-            elif momentum_score < -30:
+            elif momentum_score < 80 and fiat_flow_score < 90:
                 signal = "🔴 SELL"
                 signal_strength = "sell"
             else:
@@ -220,25 +329,26 @@ class ProfessionalFiatFlowTracker:
         return pd.DataFrame(results)
     
     def detect_opportunities(self, df):
-        """Detect special trading opportunities"""
+        """Detect special trading opportunities with improved logic"""
         opportunities = []
         
         # High momentum + high flow
-        strong_buys = df[(df['momentum_score'] > 60) & (df['fiat_flow_score'] > 130)]
+        strong_buys = df[(df['momentum_score'] > 80) & (df['fiat_flow_score'] > 120)]
         for _, row in strong_buys.iterrows():
-            opportunities.append(f"🚀 **Momentum + Flow**: {row['symbol']} has strong buying pressure")
+            opportunities.append(f"🚀 **Strong Momentum + Flow**: {row['symbol']} showing strong buying pressure (Momentum: {row['momentum_score']:.1f}, Flow: {row['fiat_flow_score']:.1f})")
         
-        # Oversold opportunities
-        oversold = df[(df['momentum_score'] < -40) & (df['fiat_flow_score'] > 100)]
+        # Oversold bounce opportunities
+        oversold = df[(df['momentum_score'] < 60) & (df['fiat_flow_score'] > 100) & (df['price_change_percent'] < -1)]
         for _, row in oversold.iterrows():
-            opportunities.append(f"📈 **Oversold Bounce**: {row['symbol']} may rebound soon")
+            opportunities.append(f"📈 **Oversold Bounce Potential**: {row['symbol']} may rebound (Flow: {row['fiat_flow_score']:.1f}, Price Drop: {row['price_change_percent']:.2f}%)")
         
-        # Volume spikes
-        volume_spikes = df[df['volume_score'] > 80]
+        # Volume spikes with price movement
+        volume_spikes = df[(df['volume_score'] > 70) & (abs(df['price_change_percent']) > 3)]
         for _, row in volume_spikes.iterrows():
-            opportunities.append(f"📊 **Volume Spike**: {row['symbol']} has unusual trading volume")
+            direction = "up" if row['price_change_percent'] > 0 else "down"
+            opportunities.append(f"📊 **High Volume Move**: {row['symbol']} moving {direction} on high volume ({row['volume_score']:.1f} score)")
         
-        return opportunities
+        return opportunities[:5]  # Return top 5 opportunities
 
 def main():
     st.title("🪙 FiatFlow Pro Tracker")
@@ -269,12 +379,12 @@ def main():
         watchlist_coins = st.multiselect(
             "Your watchlist:",
             tracker.all_coins,
-            default=['BTC', 'ETH', 'SOL']
+            default=['BTC', 'ETH', 'SOL', 'AVAX', 'LINK']
         )
         
         # Filters
         st.subheader("🔍 Filters")
-        min_momentum = st.slider("Min Momentum Score", -100, 100, -20)
+        min_momentum = st.slider("Min Momentum Score", -100, 200, 0)
         min_flow = st.slider("Min Flow Score", 0, 200, 50)
         min_volume = st.number_input("Min Volume (Million $)", 0, 1000, 1)
         
@@ -353,8 +463,14 @@ def main():
             # Determine card style
             card_class = row['signal_strength']
             
-            # Format numbers
-            price_formatted = f"${row['price']:,.2f}" if row['price'] >= 1 else f"${row['price']:.6f}"
+            # Format numbers appropriately
+            if row['price'] >= 1:
+                price_formatted = f"${row['price']:,.2f}"
+            elif row['price'] >= 0.01:
+                price_formatted = f"${row['price']:.4f}"
+            else:
+                price_formatted = f"${row['price']:.6f}"
+                
             volume_formatted = f"${row['volume']/1000000:.1f}M"
             
             st.markdown(f"""
@@ -375,7 +491,7 @@ def main():
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-top: 15px;">
                     <div>
                         <div style="color: #888; font-size: 0.8em;">Flow Score</div>
-                        <div style="font-weight: bold; font-size: 1.1em;">{row['fiat_flow_score']:.1f}%</div>
+                        <div style="font-weight: bold; font-size: 1.1em;">{row['fiat_flow_score']:.1f}</div>
                     </div>
                     <div>
                         <div style="color: #888; font-size: 0.8em;">Momentum</div>
@@ -400,7 +516,7 @@ def main():
     opportunities = tracker.detect_opportunities(filtered_df)
     
     if opportunities:
-        for opportunity in opportunities[:5]:  # Show top 5
+        for opportunity in opportunities:
             st.info(opportunity)
     else:
         st.write("No special opportunities detected. Check back later!")
@@ -408,11 +524,11 @@ def main():
     # Charts section
     st.subheader("📈 Analytics")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Momentum distribution
-        if not filtered_df.empty:
+    if not filtered_df.empty:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Momentum distribution
             fig1 = px.bar(
                 filtered_df.nlargest(10, 'momentum_score'),
                 x='symbol',
@@ -422,10 +538,9 @@ def main():
                 color_continuous_scale='RdYlGn'
             )
             st.plotly_chart(fig1, use_container_width=True)
-    
-    with col2:
-        # Flow vs Price scatter
-        if not filtered_df.empty:
+        
+        with col2:
+            # Flow vs Price scatter
             fig2 = px.scatter(
                 filtered_df,
                 x='fiat_flow_score',
@@ -477,7 +592,7 @@ def main():
     
     # Footer
     st.markdown("---")
-    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')} | FiatFlow Pro Tracker v1.0")
+    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')} | FiatFlow Pro Tracker v1.1")
 
 if __name__ == "__main__":
     main()
