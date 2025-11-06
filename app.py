@@ -245,7 +245,7 @@ class ProfessionalFiatFlowTracker:
             np.random.seed(seed)
             
             # Add realistic volatility and trends
-            daily_trend = np.sin(datetime.utcnow().hour / 24 * 2 * np.pi) * 0.3 + 1
+            daily_trend = np.sin(datetime.now().hour / 24 * 2 * np.pi) * 0.3 + 1
             volatility = np.random.uniform(0.6, 1.4)
             
             current_inflow = base_inflow * volatility * session_boost * daily_trend
@@ -476,7 +476,7 @@ def main():
             st.markdown(f"""
             <div class="metric-card {card_class}">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                    <div style="flex: 1;">
+                    <div styyle="flex: 1;">
                         <h3 style="margin: 0; font-size: 1.4em;">{row['symbol']}</h3>
                         <div style="color: #888; font-size: 0.9em;">{price_formatted}</div>
                     </div>
