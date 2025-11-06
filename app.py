@@ -554,7 +554,7 @@ def main():
                     '🟢 BUY': '#90ee90',
                     '🔴 SELL': '#ff4444',
                     '🔴 STRONG SELL': '#8b0000',
-                    '🟡 HOLD': '#ffff00'
+                    '🔴🟢 HOLD': '#ffff00'
                 }
             )
             st.plotly_chart(fig2, use_container_width=True)
